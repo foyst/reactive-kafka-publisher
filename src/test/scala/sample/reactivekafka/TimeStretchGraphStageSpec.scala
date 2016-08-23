@@ -17,6 +17,19 @@ class TimeStretchGraphStageSpec extends TestKit(ActorSystem("timeStretchGraphSta
 
   "TimeStretchGraphStage" should {
 
+    "Use nested timestamp field using dot notation" in {
+
+      val jsonMessage1 = """{"nestedObject":{"timestamp":"2016-08-19T04:40:00.000Z"}}""".parseJson
+      val jsonMessage2 = """{"nestedObject":{"timestamp":"2016-08-19T04:40:02.000Z"}}""".parseJson
+      val jsonMessages = Vector(jsonMessage1, jsonMessage2)
+
+      Source(jsonMessages).via(TimeStretchGraphStage(1, "nestedObject.timestamp"))
+        .runWith(TestSink.probe[JsValue])
+        .request(2)
+        .expectNext(100 milliseconds, jsonMessage1) //First message should come through immediately
+        .expectNext(2100 milliseconds, jsonMessage2)
+    }
+
     "Emit messages in realtime when time stretch factor is set to 1" in {
 
       val jsonMessage1 = """{"timestamp": "2016-08-19T04:40:00.000Z"}""".parseJson

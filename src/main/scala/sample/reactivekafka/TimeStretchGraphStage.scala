@@ -12,13 +12,14 @@ import spray.json.JsValue
 import spray.json.DefaultJsonProtocol._
 
 import scala.concurrent.duration._
+import scala.util.parsing.json.JSONObject
 
 object TimeStretchGraphStage {
 
-  def apply(timestretchFactor: Double, timestampFieldName: String) = new TimeStretchGraphStage(timestretchFactor, timestampFieldName)
+  def apply(timestretchFactor: Double, timestampFieldPath: String) = new TimeStretchGraphStage(timestretchFactor, timestampFieldPath)
 }
 
-class TimeStretchGraphStage(timestretchFactor: Double, timestampFieldName: String) extends GraphStage[FlowShape[JsValue, JsValue]] {
+class TimeStretchGraphStage(timestretchFactor: Double, timestampFieldPath: String) extends GraphStage[FlowShape[JsValue, JsValue]] {
 
   val log = Logger("TimestampStretchTimerGraphStage")
   val in = Inlet[JsValue]("TimedGate.in")
@@ -30,6 +31,7 @@ class TimeStretchGraphStage(timestretchFactor: Double, timestampFieldName: Strin
 
     new TimerGraphStageLogic(shape) {
 
+      val nestedTree = timestampFieldPath.split('.')
       var upstreamCompleted = false
       var firstMessage = true
 
@@ -41,7 +43,14 @@ class TimeStretchGraphStage(timestretchFactor: Double, timestampFieldName: Strin
         override def onPush(): Unit = {
           val jsonMessage = grab(in)
 
-          val msgTimestamp = Instant.parse(jsonMessage.asJsObject.fields(timestampFieldName).convertTo[String])
+          def getTimestampValue: String = {
+
+            nestedTree
+              .foldLeft(jsonMessage)((jsonObject, fieldName) => if (jsonObject.asJsObject.fields.isEmpty) jsonObject else jsonObject.asJsObject.fields(fieldName))
+              .convertTo[String]
+          }
+
+          val msgTimestamp = Instant.parse(getTimestampValue)
 
           if (firstMessage) {
             log.debug(s"On Push First Message: $jsonMessage")
