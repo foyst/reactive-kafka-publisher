@@ -1,7 +1,7 @@
 package sample.reactivekafka
 
-import akka.actor.{ ActorSystem, Props }
-import akka.stream.{ ActorMaterializer, ClosedShape, DelayOverflowStrategy, SourceShape }
+import akka.actor.{ActorSystem, Props}
+import akka.stream.{ActorMaterializer, ClosedShape, DelayOverflowStrategy, SourceShape}
 import akka.stream.scaladsl._
 import akka.kafka
 import akka.kafka.ProducerSettings
@@ -25,19 +25,9 @@ object Application extends App {
 
   def testKeyList(key: String) = (1 to 5000).map(n => (key, s"test${n}"))
 
-  def messageTickerStream(messages: Seq[(String, String)]) = {
-    RunnableGraph.fromGraph(GraphDSL.create() { implicit builder =>
+  val producerRecordBuilder = Flow[(String, String)].map(msg => new ProducerRecord[String, String](test_topic, msg._1, msg._2))
 
-      val source = builder.add(ThrottledProducer.produceThrottled(5 seconds, 5 seconds, messages))
-      val sink = Producer.plainSink(producerSettings)
-
-      import GraphDSL.Implicits._
-
-      source ~> sink
-
-      ClosedShape
-    })
-  }
-
-  messageTickerStream(testKeyList(null)).run()
+  val testStream = ThrottledProducer.produceThrottled(5 seconds, 5 seconds, testKeyList(null))
+    .via(producerRecordBuilder)
+    .runWith(Producer.plainSink(producerSettings))
 }

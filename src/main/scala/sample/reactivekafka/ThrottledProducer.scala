@@ -18,12 +18,10 @@ object ThrottledProducer {
 
       //define a zip operation that expects a tuple with a Tick and a Message in it..
       //(Note that the operations must be added to the builder before they can be used)
-      val zip = builder.add(Zip[Unit.type, ProducerRecord[String, String]])
+      val zip = builder.add(Zip[Unit.type, (String, String)])
 
       //create a flow to extract the second element in the tuple (our message - we dont need the tick part after this stage)
-      val messageExtractorFlow = builder.add(Flow[(Unit.type, ProducerRecord[String, String])].map(_._2))
-
-      val producerRecordBuilder = builder.add(Flow[(String, String)].map(msg => new ProducerRecord[String, String](test_topic, msg._1, msg._2)))
+      val messageExtractorFlow = builder.add(Flow[(Unit.type, (String, String))].map(_._2))
 
       //import this so we can use the ~> syntax
       import GraphDSL.Implicits._
@@ -31,7 +29,7 @@ object ThrottledProducer {
       //define the inputs for the zip function - it wont fire until something arrives at both inputs, so we are essentially
       //throttling the output of this steam
       ticker ~> zip.in0
-      messagesSource ~> producerRecordBuilder ~> zip.in1
+      messagesSource ~> zip.in1
 
       //send the output of our zip operation to a processing messageExtractorFlow that just allows us to take the second element of each Tuple, in our case
       //this is the string message, we dont care about the Tick, it was just for timing and we can throw it away.
