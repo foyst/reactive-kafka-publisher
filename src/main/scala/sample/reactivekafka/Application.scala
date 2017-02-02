@@ -1,11 +1,14 @@
 package sample.reactivekafka
 
+import java.nio.file.Paths
+
 import akka.actor.{ActorSystem, Props}
 import akka.stream.{ActorMaterializer, ClosedShape, DelayOverflowStrategy, SourceShape}
 import akka.stream.scaladsl._
 import akka.kafka
 import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
+import akka.util.ByteString
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 
@@ -30,4 +33,13 @@ object Application extends App {
   val testStream = ThrottledProducer.produceThrottled(5 seconds, 5 seconds, testKeyList(null))
     .via(producerRecordBuilder)
     .runWith(Producer.plainSink(producerSettings))
+
+//  Example below for how to stream from file and delimit by new line
+//  val file = Paths.get("file path here")
+//
+//  val testStream = FileIO.fromPath(file)
+//    .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 100000))
+//    .map(_.utf8String)
+//    .map(msg => new ProducerRecord[String, String](test_topic, null, msg))
+//    .runWith(Producer.plainSink(producerSettings))
 }
